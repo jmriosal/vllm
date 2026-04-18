@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterMapping, SparseAdapterRequest
 from vllm.multimodal.inputs import MultiModalFeatureSpec
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams, SamplingType
@@ -44,6 +45,7 @@ class CachedRequestState:
     xdrope_positions: torch.Tensor | None = None
 
     lora_request: LoRARequest | None = None
+    sparse_adapter_request: SparseAdapterRequest | None = None
     prompt_embeds: torch.Tensor | None = None
 
     # Used when both async_scheduling and spec_decode are enabled.
@@ -227,6 +229,10 @@ class InputBatch:
         self.request_lora_mapping = np.zeros((self.max_num_reqs,), dtype=np.int64)
         self.lora_id_to_request_ids: dict[int, set[str]] = {}
         self.lora_id_to_lora_request: dict[int, LoRARequest] = {}
+
+        # sparse adapter related
+        self.request_sparse_adapter_mapping = np.full((self.max_num_reqs,), -1, dtype=np.int64)
+        self.sparse_adapter_id_to_request: dict[int, SparseAdapterRequest] = {}
 
         # req_index -> generator
         # NOTE(woosuk): The indices of the requests that do not have their own
@@ -458,6 +464,14 @@ class InputBatch:
             # No LoRA
             self.request_lora_mapping[req_index] = 0
 
+        # Add request sparse adapter ID
+        if request.sparse_adapter_request:
+            sa_id = request.sparse_adapter_request.sparse_adapter_id
+            self.request_sparse_adapter_mapping[req_index] = sa_id
+            self.sparse_adapter_id_to_request[sa_id] = request.sparse_adapter_request
+        else:
+            self.request_sparse_adapter_mapping[req_index] = -1
+
         return req_index
 
     def update_req_spec_token_ids(
@@ -515,6 +529,13 @@ class InputBatch:
                 del self.lora_id_to_request_ids[lora_id]
                 del self.lora_id_to_lora_request[lora_id]
             self.request_lora_mapping[req_index] = 0
+
+        # Sparse Adapter
+        sa_id = self.request_sparse_adapter_mapping[req_index]
+        if sa_id != -1:
+            self.request_sparse_adapter_mapping[req_index] = -1
+        #    if sa_id not in self.request_sparse_adapter_mapping[:self.num_reqs]:
+        #        del self.sparse_adapter_id_to_request[sa_id]
 
         if self.is_pooling_model:
             self.pooling_params.pop(req_id, None)
@@ -609,6 +630,11 @@ class InputBatch:
         self.request_lora_mapping[i1], self.request_lora_mapping[i2] = (
             self.request_lora_mapping[i2],
             self.request_lora_mapping[i1],
+        )
+
+        self.request_sparse_adapter_mapping[i1], self.request_sparse_adapter_mapping[i2] = (
+            self.request_sparse_adapter_mapping[i2],
+            self.request_sparse_adapter_mapping[i1],
         )
 
         if self.is_pooling_model:
@@ -736,6 +762,10 @@ class InputBatch:
             self.block_table.move_row(last_req_index, empty_index)
 
             self.request_lora_mapping[empty_index] = self.request_lora_mapping[
+                last_req_index
+            ]
+
+            self.request_sparse_adapter_mapping[empty_index] = self.request_sparse_adapter_mapping[
                 last_req_index
             ]
 
@@ -969,6 +999,25 @@ class InputBatch:
 
         return prompt_lora_mapping, token_lora_mapping, active_lora_requests
 
+    def make_sparse_adapter_inputs(
+        self,
+        num_scheduled_tokens: np.ndarray,
+        num_sampled_tokens: np.ndarray,
+    ) -> SparseAdapterMapping:
+        """
+        Build per-token sparse adapter ID mapping for the current batch.
+        Returns:
+            SparseAdapterMapping with token_to_adapter of size
+            np.sum(num_scheduled_tokens) and prompt_to_adapter of size
+            np.sum(num_sampled_tokens), where each position holds the
+            sparse adapter ID for that token, or -1 if none.
+        """
+        req_mapping = self.request_sparse_adapter_mapping[:self.num_reqs]
+        token_mapping = tuple(req_mapping.repeat(num_scheduled_tokens))
+        prompt_mapping = tuple(req_mapping.repeat(num_sampled_tokens))
+        active_requests = set(self.sparse_adapter_id_to_request.values())
+        return SparseAdapterMapping(token_mapping, prompt_mapping, active_requests)
+    
     def set_async_sampled_token_ids(
         self,
         sampled_token_ids_cpu: torch.Tensor,

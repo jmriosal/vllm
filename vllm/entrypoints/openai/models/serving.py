@@ -13,7 +13,12 @@ from vllm.entrypoints.openai.engine.protocol import (
     ModelList,
     ModelPermission,
 )
-from vllm.entrypoints.openai.models.protocol import BaseModelPath, LoRAModulePath
+from vllm.entrypoints.openai.models.protocol import (
+    BaseModelPath,
+    LoRAModulePath,
+    SparseAdapterModulePath,
+)
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.entrypoints.serve.lora.protocol import (
     LoadLoRAAdapterRequest,
     UnloadLoRAAdapterRequest,
@@ -88,6 +93,7 @@ class OpenAIServingModels:
         base_model_paths: list[BaseModelPath],
         *,
         lora_modules: list[LoRAModulePath] | None = None,
+        sparse_adapter_modules: list[SparseAdapterModulePath] | None = None,
     ):
         super().__init__()
 
@@ -102,6 +108,10 @@ class OpenAIServingModels:
         self.static_lora_modules = lora_modules
         self.lora_requests: dict[str, LoRARequest] = {}
         self.lora_id_counter = AtomicCounter(0)
+
+        self.static_sparse_adapter_modules = sparse_adapter_modules
+        self.sparse_adapter_requests: dict[str, SparseAdapterRequest] = {}
+        self.sparse_adapter_id_counter = AtomicCounter(100)
 
         self.lora_resolvers: list[LoRAResolver] = []
         for lora_resolver_name in LoRAResolverRegistry.get_supported_resolvers():
@@ -130,12 +140,38 @@ class OpenAIServingModels:
             if isinstance(load_result, ErrorResponse):
                 raise ValueError(load_result.error.message)
 
+    async def init_static_sparse_adapters(self):
+        """Register all static sparse adapter modules.
+        Adapters are lazily loaded by model_manager on first request."""
+        if self.static_sparse_adapter_modules is None:
+            return
+        for adapter in self.static_sparse_adapter_modules:
+            adapter_id = self.sparse_adapter_id_counter.inc(1)
+            request = SparseAdapterRequest(
+                sparse_adapter_name=adapter.name,
+                sparse_adapter_id=adapter_id,
+                sparse_adapter_path=adapter.path,
+                base_model_name=adapter.base_model_name,
+            )
+            self.sparse_adapter_requests[adapter.name] = request
+            logger.info(
+                "Registered sparse adapter: name '%s', path '%s'",
+                adapter.name,
+                adapter.path,
+            )
+
     def is_base_model(self, model_name: str) -> bool:
         return self.registry.is_base_model(model_name)
 
-    def model_name(self, lora_request: LoRARequest | None = None) -> str:
+    def model_name(
+        self,
+        lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
+    ) -> str:
         if lora_request is not None:
             return lora_request.lora_name
+        if sparse_adapter_request is not None:
+            return sparse_adapter_request.sparse_adapter_name
         return self.base_model_paths[0].name
 
     async def show_available_models(self) -> ModelList:
@@ -154,6 +190,18 @@ class OpenAIServingModels:
             for lora in self.lora_requests.values()
         ]
         model_list.data.extend(lora_cards)
+        sparse_adapter_cards = [
+            ModelCard(
+                id=sa.sparse_adapter_name,
+                root=sa.sparse_adapter_path,
+                parent=sa.base_model_name
+                if sa.base_model_name
+                else self.base_model_paths[0].name,
+                permission=[ModelPermission()],
+            )
+            for sa in self.sparse_adapter_requests.values()
+        ]
+        model_list.data.extend(sparse_adapter_cards)
         return model_list
 
     async def load_lora_adapter(

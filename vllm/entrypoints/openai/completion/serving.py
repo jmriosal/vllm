@@ -138,6 +138,8 @@ class OpenAIServingCompletion(OpenAIServing):
 
         lora_request = self._maybe_get_adapters(request)
 
+        sparse_adapter_request = self._maybe_get_sparse_adapter(request)
+
         # Extract data_parallel_rank from header (router can inject it)
         data_parallel_rank = self._get_data_parallel_rank(raw_request)
 
@@ -193,6 +195,7 @@ class OpenAIServingCompletion(OpenAIServing):
                     sampling_params,
                     request_id_item,
                     lora_request=lora_request,
+                    sparse_adapter_request=sparse_adapter_request,
                     trace_headers=trace_headers,
                     priority=request.priority,
                     data_parallel_rank=data_parallel_rank,
@@ -202,7 +205,7 @@ class OpenAIServingCompletion(OpenAIServing):
 
         result_generator = merge_async_iterators(*generators)
 
-        model_name = self.models.model_name(lora_request)
+        model_name = self.models.model_name(lora_request, sparse_adapter_request)
         num_prompts = len(engine_inputs)
 
         # Streaming response

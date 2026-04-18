@@ -364,8 +364,10 @@ async def init_app_state(
         engine_client=engine_client,
         base_model_paths=base_model_paths,
         lora_modules=lora_modules,
+        sparse_adapter_modules=args.sparse_adapter_modules,
     )
     await state.openai_serving_models.init_static_loras()
+    await state.openai_serving_models.init_static_sparse_adapters()
 
     state.openai_serving_render = OpenAIServingRender(
         model_config=engine_client.model_config,

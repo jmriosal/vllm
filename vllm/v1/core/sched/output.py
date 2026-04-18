@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from vllm.distributed.ec_transfer.ec_connector.base import ECConnectorMetadata
     from vllm.distributed.kv_transfer.kv_connector.v1.base import KVConnectorMetadata
     from vllm.lora.request import LoRARequest
+    from vllm.lora.sparse_adapter.request import SparseAdapterRequest
     from vllm.multimodal.inputs import MultiModalFeatureSpec
     from vllm.pooling_params import PoolingParams
     from vllm.sampling_params import SamplingParams
@@ -21,6 +22,7 @@ else:
     ECConnectorMetadata = object
     KVConnectorMetadata = object
     LoRARequest = object
+    SparseAdapterRequest = object
     MultiModalFeatureSpec = object
     PoolingParams = object
     SamplingParams = object
@@ -37,6 +39,7 @@ class NewRequestData:
     block_ids: tuple[list[int], ...]
     num_computed_tokens: int
     lora_request: LoRARequest | None
+    sparse_adapter_request: SparseAdapterRequest | None
     prompt_embeds: "torch.Tensor | None" = None
 
     # Only used for v2 model runner.
@@ -58,6 +61,7 @@ class NewRequestData:
             block_ids=block_ids,
             num_computed_tokens=request.num_computed_tokens,
             lora_request=request.lora_request,
+            sparse_adapter_request=request.sparse_adapter_request,
             prompt_embeds=request.prompt_embeds,
             prefill_token_ids=prefill_token_ids,
         )

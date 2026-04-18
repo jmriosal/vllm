@@ -64,6 +64,7 @@ from vllm.inputs import (
 )
 from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.model_executor.layers.quantization import QuantizationMethods
 from vllm.outputs import (
     ClassificationRequestOutput,
@@ -453,6 +454,7 @@ class LLM:
         *,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         priority: list[int] | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[RequestOutput]:
@@ -476,6 +478,7 @@ class LLM:
                 it is used to create the progress bar.
                 If `False`, no progress bar is created.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter to use for generation, if any.
             priority: The priority of the requests, if any.
                 Only applicable when priority scheduling policy is enabled.
                 If provided, must be a list of integers matching the length
@@ -504,6 +507,7 @@ class LLM:
             output_type=RequestOutput,
             use_tqdm=use_tqdm,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             tokenization_kwargs=tokenization_kwargs,
             priority=priority,
         )
@@ -513,6 +517,7 @@ class LLM:
         prompts: PromptType | Sequence[PromptType],
         sampling_params: SamplingParams | Sequence[SamplingParams] | None = None,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         priority: list[int] | None = None,
         use_tqdm: bool | Callable[..., tqdm] = True,
         tokenization_kwargs: dict[str, Any] | None = None,
@@ -527,6 +532,7 @@ class LLM:
             prompts: The prompts to the LLM. See generate() for details.
             sampling_params: The sampling parameters for text generation.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter request to use for generation, if any.
             priority: The priority of the requests, if any.
             use_tqdm: If True, shows a tqdm progress bar while adding requests.
             tokenization_kwargs: Overrides for `tokenizer.encode`.
@@ -546,6 +552,7 @@ class LLM:
             params=sampling_params,
             use_tqdm=use_tqdm,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             priority=priority,
             tokenization_kwargs=tokenization_kwargs,
         )
@@ -958,6 +965,7 @@ class LLM:
         sampling_params: SamplingParams | Sequence[SamplingParams] | None = None,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         chat_template: str | None = None,
         chat_template_content_format: ChatTemplateContentFormatOption = "auto",
         add_generation_prompt: bool = True,
@@ -993,6 +1001,7 @@ class LLM:
                 it is used to create the progress bar.
                 If `False`, no progress bar is created.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter request to use for generation, if any.
             chat_template: The template to use for structuring the chat.
                 If not provided, the model's default chat template will be used.
             chat_template_content_format: The format to render message content.
@@ -1035,6 +1044,7 @@ class LLM:
             output_type=RequestOutput,
             use_tqdm=use_tqdm,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             chat_template=chat_template,
             chat_template_content_format=chat_template_content_format,
             chat_template_kwargs=chat_template_kwargs,
@@ -1052,6 +1062,7 @@ class LLM:
         *,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: list[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         pooling_task: PoolingTask | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[PoolingRequestOutput]:
@@ -1073,6 +1084,7 @@ class LLM:
                 it is used to create the progress bar.
                 If `False`, no progress bar is created.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter request to use for generation, if any.
             pooling_task: Override the pooling task to use.
             tokenization_kwargs: Overrides for `tokenizer.encode`.
 
@@ -1124,6 +1136,7 @@ class LLM:
                 output_type=PoolingRequestOutput,
                 use_tqdm=use_tqdm,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 tokenization_kwargs=tokenization_kwargs,
             )
 
@@ -1169,12 +1182,16 @@ class LLM:
                 seq_lora_requests = self._lora_request_to_seq(
                     lora_request, len(prompts_seq)
                 )
+                seq_sparse_adapter_requests = self._sparse_adapter_request_to_seq(
+                    sparse_adapter_request, len(prompts_seq)
+                )
                 seq_priority = self._priority_to_seq(None, len(prompts))
 
                 self._render_and_add_requests(
                     prompts=processor_inputs,
                     params=params_seq,
                     lora_requests=seq_lora_requests,
+                    sparse_adapter_requests=seq_sparse_adapter_requests,
                     priorities=seq_priority,
                 )
 
@@ -1191,6 +1208,7 @@ class LLM:
                     output_type=PoolingRequestOutput,
                     use_tqdm=use_tqdm,
                     lora_request=lora_request,
+                    sparse_adapter_request=sparse_adapter_request,
                     tokenization_kwargs=tokenization_kwargs,
                 )
         return outputs
@@ -1261,6 +1279,7 @@ class LLM:
         use_tqdm: bool | Callable[..., tqdm] = True,
         pooling_params: PoolingParams | Sequence[PoolingParams] | None = None,
         lora_request: list[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[EmbeddingRequestOutput]:
         """
@@ -1281,6 +1300,7 @@ class LLM:
                 it is used to create the progress bar.
                 If `False`, no progress bar is created.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter request to use for generation, if any.
             tokenization_kwargs: Overrides for `tokenizer.encode`.
 
         Returns:
@@ -1293,6 +1313,7 @@ class LLM:
             use_tqdm=use_tqdm,
             pooling_params=pooling_params,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             pooling_task="embed",
             tokenization_kwargs=tokenization_kwargs,
         )
@@ -1306,6 +1327,7 @@ class LLM:
         pooling_params: PoolingParams | Sequence[PoolingParams] | None = None,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: list[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[ClassificationRequestOutput]:
         """
@@ -1338,6 +1360,7 @@ class LLM:
             use_tqdm=use_tqdm,
             pooling_params=pooling_params,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             pooling_task="classify",
             tokenization_kwargs=tokenization_kwargs,
         )
@@ -1352,6 +1375,7 @@ class LLM:
         pooling_params: PoolingParams | Sequence[PoolingParams] | None = None,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: list[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[PoolingRequestOutput]:
         """
@@ -1368,6 +1392,7 @@ class LLM:
                 it is used to create the progress bar.
                 If `False`, no progress bar is created.
             lora_request: LoRA request to use for generation, if any.
+            sparse_adapter_request: Sparse Adapter request to use for generation, if any.
             tokenization_kwargs: Overrides for `tokenizer.encode`.
 
         Returns:
@@ -1378,6 +1403,7 @@ class LLM:
             prompts,
             use_tqdm=use_tqdm,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             pooling_params=pooling_params,
             pooling_task="token_classify",
             tokenization_kwargs=tokenization_kwargs,
@@ -1392,6 +1418,7 @@ class LLM:
         use_tqdm: bool | Callable[..., tqdm] = True,
         pooling_params: PoolingParams | None = None,
         lora_request: list[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
         chat_template: str | None = None,
     ) -> list[ScoringRequestOutput]:
@@ -1471,6 +1498,9 @@ class LLM:
         seq_lora_requests = self._lora_request_to_seq(
             lora_request, len(processor_inputs)
         )
+        seq_sparse_adapter_requests = self._sparse_adapter_request_to_seq(
+            sparse_adapter_request, len(processor_inputs)
+        )
 
         if ctx.pooling_params is None:
             ctx.pooling_params = PoolingParams()
@@ -1489,6 +1519,7 @@ class LLM:
             prompts=processor_inputs,
             params=params_seq,
             lora_requests=seq_lora_requests,
+            sparse_adapter_requests=seq_sparse_adapter_requests,
             priorities=seq_priority,
         )
 
@@ -1603,6 +1634,22 @@ class LLM:
 
         return [lora_request] * num_requests
 
+    def _sparse_adapter_request_to_seq(
+        self,
+        sparse_adapter_request: SparseAdapterRequest | None | Sequence[SparseAdapterRequest | None],
+        num_requests: int,
+    ) -> Sequence[SparseAdapterRequest | None]:
+        if isinstance(sparse_adapter_request, Sequence):
+            if len(sparse_adapter_request) != num_requests:
+                raise ValueError(
+                    f"The lengths of prompts ({num_requests}) "
+                    f"and sparse_adapter_request ({len(sparse_adapter_request)}) must be the same."
+                )
+
+            return sparse_adapter_request
+
+        return [sparse_adapter_request] * num_requests
+
     def _priority_to_seq(
         self,
         priority: list[int] | None,
@@ -1628,12 +1675,14 @@ class LLM:
         *,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         priority: list[int] | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ) -> list[str]:
         seq_prompts = prompt_to_seq(prompts)
         seq_params = self._params_to_seq(params, len(seq_prompts))
         seq_lora_requests = self._lora_request_to_seq(lora_request, len(seq_prompts))
+        seq_sparse_adapter_requests = self._sparse_adapter_request_to_seq(sparse_adapter_request, len(seq_prompts))
         seq_priority = self._priority_to_seq(priority, len(prompts))
 
         return self._render_and_add_requests(
@@ -1647,6 +1696,7 @@ class LLM:
             ),
             params=seq_params,
             lora_requests=seq_lora_requests,
+            sparse_adapter_requests=seq_sparse_adapter_requests,
             priorities=seq_priority,
         )
 
@@ -1660,6 +1710,7 @@ class LLM:
         *,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         priority: list[int] | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
     ):
@@ -1668,6 +1719,7 @@ class LLM:
             params=params,
             use_tqdm=use_tqdm,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             priority=priority,
             tokenization_kwargs=tokenization_kwargs,
         )
@@ -1684,6 +1736,7 @@ class LLM:
         *,
         use_tqdm: bool | Callable[..., tqdm] = True,
         lora_request: Sequence[LoRARequest] | LoRARequest | None = None,
+        sparse_adapter_request: Sequence[SparseAdapterRequest] | SparseAdapterRequest | None = None,
         chat_template: str | None = None,
         chat_template_content_format: ChatTemplateContentFormatOption = "auto",
         add_generation_prompt: bool = True,
@@ -1696,6 +1749,7 @@ class LLM:
         seq_convs = conversation_to_seq(messages)
         seq_params = self._params_to_seq(params, len(seq_convs))
         seq_lora_requests = self._lora_request_to_seq(lora_request, len(seq_convs))
+        seq_sparse_adapter_requests = self._sparse_adapter_request_to_seq(sparse_adapter_request, len(seq_convs))
 
         return self._render_and_run_requests(
             prompts=(
@@ -1719,6 +1773,7 @@ class LLM:
             params=seq_params,
             output_type=output_type,
             lora_requests=seq_lora_requests,
+            sparse_adapter_requests=seq_sparse_adapter_requests,
             use_tqdm=use_tqdm,
         )
 
@@ -1729,6 +1784,7 @@ class LLM:
         output_type: type[_O],
         *,
         lora_requests: Sequence[LoRARequest | None] | None = None,
+        sparse_adapter_requests: Sequence[SparseAdapterRequest | None] | None = None,
         priorities: Sequence[int] | None = None,
         use_tqdm: bool | Callable[..., tqdm] = True,
     ):
@@ -1746,6 +1802,7 @@ class LLM:
             prompts=prompts,
             params=params,
             lora_requests=lora_requests,
+            sparse_adapter_requests=sparse_adapter_requests,
             priorities=priorities,
         )
 
@@ -1757,6 +1814,7 @@ class LLM:
         params: Sequence[SamplingParams | PoolingParams],
         *,
         lora_requests: Sequence[LoRARequest | None] | None = None,
+        sparse_adapter_requests: Sequence[SparseAdapterRequest | None] | None = None,
         priorities: Sequence[int] | None = None,
     ) -> list[str]:
         added_request_ids: list[str] = []
@@ -1770,6 +1828,7 @@ class LLM:
                         prompt,
                         None if lora_requests is None else lora_requests[i],
                     ),
+                    sparse_adapter_request=None if sparse_adapter_requests is None else sparse_adapter_requests[i],
                     priority=0 if priorities is None else priorities[i],
                 )
                 added_request_ids.append(request_id)
@@ -1785,6 +1844,7 @@ class LLM:
         prompt: EngineInput,
         params: SamplingParams | PoolingParams,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         priority: int = 0,
     ) -> str:
         if isinstance(params, SamplingParams):
@@ -1798,6 +1858,7 @@ class LLM:
             prompt,
             params,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             priority=priority,
         )
 

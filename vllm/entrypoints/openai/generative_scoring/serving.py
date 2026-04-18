@@ -228,6 +228,8 @@ class OpenAIServingGenerativeScoring(OpenAIServing):
             logger.exception("Error preparing request components")
             return self.create_error_response(e)
 
+        sparse_adapter_request = self._maybe_get_sparse_adapter(request)
+
         base_id = self._base_request_id(raw_request, default=request.request_id)
         request_id = f"generative-scoring-{base_id}"
         created_time = int(time.time())
@@ -278,6 +280,7 @@ class OpenAIServingGenerativeScoring(OpenAIServing):
                 sampling_params,
                 request_id_item,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 trace_headers=trace_headers,
                 priority=request.priority,
             )
@@ -363,7 +366,7 @@ class OpenAIServingGenerativeScoring(OpenAIServing):
             total_completion_tokens += len(output.token_ids)
 
         # Build response
-        model_name = self.models.model_name(lora_request)
+        model_name = self.models.model_name(lora_request, sparse_adapter_request)
         response = GenerativeScoringResponse(
             id=request_id,
             created=created_time,

@@ -115,6 +115,7 @@ from vllm.logger import init_logger
 from vllm.logprobs import Logprob as SampleLogprob
 from vllm.logprobs import SampleLogprobs
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.outputs import CompletionOutput
 from vllm.parser import ParserManager
 from vllm.sampling_params import SamplingParams, StructuredOutputsParams
@@ -366,7 +367,8 @@ class OpenAIServingResponses(OpenAIServing):
             prev_response = None
 
         lora_request = self._maybe_get_adapters(request)
-        model_name = self.models.model_name(lora_request)
+        sparse_adapter_request = self._maybe_get_sparse_adapter(request)
+        model_name = self.models.model_name(lora_request, sparse_adapter_request)
 
         if self.use_harmony:
             messages, engine_inputs = self._make_request_with_harmony(
@@ -484,6 +486,7 @@ class OpenAIServingResponses(OpenAIServing):
                 sampling_params=sampling_params,
                 context=context,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 priority=request.priority,
                 trace_headers=trace_headers,
             )
@@ -628,6 +631,7 @@ class OpenAIServingResponses(OpenAIServing):
         sampling_params: SamplingParams,
         context: ConversationContext,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         priority: int = 0,
         trace_headers: Mapping[str, str] | None = None,
     ):
@@ -651,6 +655,7 @@ class OpenAIServingResponses(OpenAIServing):
                 sampling_params,
                 sub_request_id,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 trace_headers=trace_headers,
                 priority=priority,
             )

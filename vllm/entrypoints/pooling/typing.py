@@ -32,6 +32,7 @@ from vllm.entrypoints.pooling.scoring.protocol import ScoringRequest, ScoringRes
 from vllm.entrypoints.pooling.scoring.typing import ScoringData
 from vllm.inputs import EngineInput
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 
 PoolingCompletionLikeRequest: TypeAlias = (
     EmbeddingCompletionRequest
@@ -71,6 +72,7 @@ class PoolingServeContext(Generic[PoolingRequestT]):
     request_id: str
     created_time: int = field(default_factory=lambda: int(time.time()))
     lora_request: LoRARequest | None = None
+    sparse_adapter_request: SparseAdapterRequest | None = None
     pooling_params: PoolingParams | list[PoolingParams] | None = None
     engine_inputs: Sequence[EngineInput] | None = None
     prompt_request_ids: list[str] | None = None

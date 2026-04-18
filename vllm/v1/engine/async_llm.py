@@ -24,6 +24,7 @@ from vllm.entrypoints.serve.elastic_ep.middleware import set_scaling_elastic_ep
 from vllm.inputs import EngineInput, PromptType
 from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.multimodal import MULTIMODAL_REGISTRY, MultiModalRegistry
 from vllm.outputs import STREAM_FINISHED, PoolingRequestOutput, RequestOutput
 from vllm.plugins.io_processors import get_io_processor
@@ -295,6 +296,7 @@ class AsyncLLM(EngineClient):
         params: SamplingParams | PoolingParams,
         arrival_time: float | None = None,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
         trace_headers: Mapping[str, str] | None = None,
         priority: int = 0,
@@ -360,6 +362,7 @@ class AsyncLLM(EngineClient):
                 supported_tasks=await self.get_supported_tasks(),
                 arrival_time=arrival_time,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 tokenization_kwargs=tokenization_kwargs,
                 trace_headers=trace_headers,
                 priority=priority,
@@ -537,6 +540,7 @@ class AsyncLLM(EngineClient):
         *,
         prompt_text: str | None = None,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
         trace_headers: Mapping[str, str] | None = None,
         priority: int = 0,
@@ -565,6 +569,7 @@ class AsyncLLM(EngineClient):
                 prompt,
                 sampling_params,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 tokenization_kwargs=tokenization_kwargs,
                 trace_headers=trace_headers,
                 priority=priority,
@@ -780,6 +785,7 @@ class AsyncLLM(EngineClient):
         pooling_params: PoolingParams,
         request_id: str,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         trace_headers: Mapping[str, str] | None = None,
         priority: int = 0,
         tokenization_kwargs: dict[str, Any] | None = None,
@@ -806,6 +812,7 @@ class AsyncLLM(EngineClient):
                 prompt,
                 pooling_params,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 tokenization_kwargs=tokenization_kwargs,
                 trace_headers=trace_headers,
                 priority=priority,

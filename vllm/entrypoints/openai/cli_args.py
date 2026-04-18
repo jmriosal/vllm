@@ -24,7 +24,10 @@ from vllm.entrypoints.constants import (
     H11_MAX_HEADER_COUNT_DEFAULT,
     H11_MAX_INCOMPLETE_EVENT_SIZE_DEFAULT,
 )
-from vllm.entrypoints.openai.models.protocol import LoRAModulePath
+from vllm.entrypoints.openai.models.protocol import (
+    LoRAModulePath,
+    SparseAdapterModulePath,
+)
 from vllm.logger import init_logger
 from vllm.tool_parsers import ToolParserManager
 from vllm.utils.argparse_utils import FlexibleArgumentParser
@@ -66,6 +69,43 @@ class LoRAParserAction(argparse.Action):
         setattr(namespace, self.dest, lora_list)
 
 
+class SparseAdapterParserAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[str] | None,
+        option_string: str | None = None,
+    ):
+        if values is None:
+            values = []
+        if isinstance(values, str):
+            raise TypeError("Expected values to be a list")
+
+        adapter_list: list[SparseAdapterModulePath] = []
+        for item in values:
+            if item in [None, ""]:
+                continue
+            if "=" in item and "," not in item:  # Old format: name=path
+                name, path = item.split("=")
+                adapter_list.append(SparseAdapterModulePath(name, path))
+            else:  # Assume JSON format
+                try:
+                    d = json.loads(item)
+                    adapter_list.append(SparseAdapterModulePath(**d))
+                except json.JSONDecodeError:
+                    parser.error(
+                        f"Invalid JSON format for "
+                        f"--sparse-adapter-modules: {item}"
+                    )
+                except TypeError as e:
+                    parser.error(
+                        f"Invalid fields for "
+                        f"--sparse-adapter-modules: {item} - {str(e)}"
+                    )
+        setattr(namespace, self.dest, adapter_list)
+
+
 @config
 class BaseFrontendArgs:
     """Base arguments for the OpenAI-compatible frontend server.
@@ -80,6 +120,10 @@ class BaseFrontendArgs:
     or JSON list format. Example (old format): `'name=path'` Example (new
     format): `{\"name\": \"name\", \"path\": \"lora_path\",
     \"base_model_name\": \"id\"}`"""
+    sparse_adapter_modules: list[SparseAdapterModulePath] | None = None
+    """Sparse adapter module configurations in either 'name=path' format or
+    JSON format. Example (old format): `'name=path'` Example (new format):
+    `{\"name\": \"name\", \"path\": \"adapter_path\"}`"""
     chat_template: str | None = None
     """The file path to the chat template, or the template in single-line form
     for the specified model."""
@@ -174,6 +218,10 @@ class BaseFrontendArgs:
         # optional_type(str)
         frontend_kwargs["lora_modules"]["type"] = optional_type(str)
         frontend_kwargs["lora_modules"]["action"] = LoRAParserAction
+
+        # Special case: Sparse adapter modules need custom parser action
+        frontend_kwargs["sparse_adapter_modules"]["type"] = optional_type(str)
+        frontend_kwargs["sparse_adapter_modules"]["action"] = SparseAdapterParserAction
 
         # Special case: Tool call parser shows built-in options.
         valid_tool_parsers = list(ToolParserManager.list_registered())

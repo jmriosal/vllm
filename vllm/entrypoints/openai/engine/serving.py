@@ -598,6 +598,9 @@ class OpenAIServing:
             ):
                 error_response = load_result
 
+        if request.model in self.models.sparse_adapter_requests:
+            return None
+
         return error_response or self.create_error_response(
             message=f"The model `{request.model}` does not exist.",
             err_type="NotFoundError",
@@ -646,8 +649,20 @@ class OpenAIServing:
         if self._is_model_supported(request.model):
             return None
 
+        if request.model in self.models.sparse_adapter_requests:
+            return None
+
         # if _check_model has been called earlier, this will be unreachable
         raise ValueError(f"The model `{request.model}` does not exist.")
+
+    def _maybe_get_sparse_adapter(
+        self,
+        request: AnyRequest,
+    ) -> "SparseAdapterRequest | None":
+        """Look up a sparse adapter by model name."""
+        if request.model in self.models.sparse_adapter_requests:
+            return self.models.sparse_adapter_requests[request.model]
+        return None
 
     def _get_message_types(self, request: AnyRequest) -> set[str]:
         """Retrieve the set of types from message content dicts up

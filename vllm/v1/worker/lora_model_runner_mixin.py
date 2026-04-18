@@ -17,6 +17,7 @@ from vllm.logger import init_logger
 from vllm.lora.layers import LoRAMapping, LoRAMappingType
 from vllm.lora.request import LoRARequest
 from vllm.lora.worker_manager import LRUCacheWorkerLoRAManager
+from vllm.lora.sparse_adapter.request import SparseAdapterMapping
 from vllm.model_executor.models import supports_lora
 from vllm.v1.worker.gpu_input_batch import InputBatch as GPUInputBatch
 from vllm.v1.worker.tpu_input_batch import InputBatch as TPUInputBatch
@@ -51,6 +52,7 @@ class LoRAModelRunnerMixin:
         token_lora_mapping: tuple[int, ...],
         lora_requests: set[LoRARequest],
         mapping_type: LoRAMappingType = LoRAMappingType.LANGUAGE,
+        sparse_adapter_mapping: SparseAdapterMapping | None = None,
     ) -> None:
         self._ensure_lora_enabled()
 
@@ -64,7 +66,9 @@ class LoRAModelRunnerMixin:
             is_prefill=True,
             type=mapping_type,
         )
-        self.lora_manager.set_active_adapters(lora_requests, lora_mapping)
+        self.lora_manager.set_active_adapters(
+            lora_requests, lora_mapping, sparse_adapter_mapping
+        )
 
     def _ensure_lora_enabled(self) -> None:
         if not hasattr(self, "lora_manager"):
@@ -86,8 +90,11 @@ class LoRAModelRunnerMixin:
         prompt_lora_mapping, token_lora_mapping, lora_requests = (
             input_batch.make_lora_inputs(num_scheduled_tokens, num_sampled_tokens)
         )
+        sparse_adapter_mapping = input_batch.make_sparse_adapter_inputs(
+            num_scheduled_tokens, num_sampled_tokens
+        )
         return self._set_active_loras(
-            prompt_lora_mapping, token_lora_mapping, lora_requests, mapping_type
+            prompt_lora_mapping, token_lora_mapping, lora_requests, mapping_type, sparse_adapter_mapping
         )
 
     @contextmanager

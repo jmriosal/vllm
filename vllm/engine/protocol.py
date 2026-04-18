@@ -13,6 +13,7 @@ from vllm.distributed.weight_transfer.base import (
 )
 from vllm.inputs import EngineInput, PromptType
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.outputs import PoolingRequestOutput, RequestOutput
 from vllm.plugins.io_processors import IOProcessor
 from vllm.pooling_params import PoolingParams
@@ -75,6 +76,7 @@ class EngineClient(ABC):
         *,
         prompt_text: str | None = None,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         tokenization_kwargs: dict[str, Any] | None = None,
         trace_headers: Mapping[str, str] | None = None,
         priority: int = 0,
@@ -91,6 +93,7 @@ class EngineClient(ABC):
         pooling_params: PoolingParams,
         request_id: str,
         lora_request: LoRARequest | None = None,
+        sparse_adapter_request: SparseAdapterRequest | None = None,
         trace_headers: Mapping[str, str] | None = None,
         priority: int = 0,
         tokenization_kwargs: dict[str, Any] | None = None,

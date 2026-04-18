@@ -92,8 +92,9 @@ class ServingTokens(OpenAIServing):
 
         lora_request = None
         lora_request = self._maybe_get_adapters(request, supports_default_mm_loras=True)
+        sparse_adapter_request = self._maybe_get_sparse_adapter(request)
 
-        model_name = self.models.model_name(lora_request)
+        model_name = self.models.model_name(lora_request, sparse_adapter_request)
 
         request_id = (
             f"generate-tokens-{self._base_request_id(raw_request, request.request_id)}"
@@ -135,6 +136,7 @@ class ServingTokens(OpenAIServing):
             sampling_params,
             request_id,
             lora_request=lora_request,
+            sparse_adapter_request=sparse_adapter_request,
             trace_headers=trace_headers,
             priority=request.priority,
         )

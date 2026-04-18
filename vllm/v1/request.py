@@ -67,6 +67,7 @@ class Request:
         prompt_embeds: torch.Tensor | None = None,
         mm_features: list[MultiModalFeatureSpec] | None = None,
         lora_request: "LoRARequest | None" = None,
+        sparse_adapter_request: "SparseAdapterRequest | None" = None,
         cache_salt: str | None = None,
         priority: int = 0,
         trace_headers: Mapping[str, str] | None = None,
@@ -80,6 +81,7 @@ class Request:
         self.sampling_params = sampling_params
         self.pooling_params = pooling_params
         self.lora_request = lora_request
+        self.sparse_adapter_request = sparse_adapter_request
         self.structured_output_request = StructuredOutputRequest.from_sampling_params(
             sampling_params
         )
@@ -192,6 +194,7 @@ class Request:
             pooling_params=request.pooling_params,
             arrival_time=request.arrival_time,
             lora_request=request.lora_request,
+            sparse_adapter_request=request.sparse_adapter_request,
             cache_salt=request.cache_salt,
             priority=request.priority,
             trace_headers=request.trace_headers,

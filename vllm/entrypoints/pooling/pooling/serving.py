@@ -82,12 +82,12 @@ class OpenAIServingPooling(OpenAIServing):
         if error_check_ret is not None:
             return error_check_ret
 
-        model_name = self.models.model_name()
-
         request_id = f"pool-{self._base_request_id(raw_request)}"
         created_time = int(time.time())
 
         lora_request = self._maybe_get_adapters(request)
+        sparse_adapter_request = self._maybe_get_sparse_adapter(request)
+        model_name = self.models.model_name(lora_request, sparse_adapter_request)
 
         if request.task is None:
             request.task = self.pooling_task
@@ -186,6 +186,7 @@ class OpenAIServingPooling(OpenAIServing):
                 pooling_params,
                 request_id_item,
                 lora_request=lora_request,
+                sparse_adapter_request=sparse_adapter_request,
                 trace_headers=trace_headers,
                 priority=request.priority,
             )

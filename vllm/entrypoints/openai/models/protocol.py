@@ -16,3 +16,10 @@ class LoRAModulePath:
     name: str
     path: str
     base_model_name: str | None = None
+
+
+@dataclass
+class SparseAdapterModulePath:
+    name: str
+    path: str
+    base_model_name: str | None = None

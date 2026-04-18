@@ -22,6 +22,7 @@ from vllm.entrypoints.pooling.typing import AnyPoolingRequest, PoolingServeConte
 from vllm.exceptions import VLLMNotFoundError
 from vllm.inputs import EngineInput
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.renderers.base import BaseRenderer
 from vllm.renderers.inputs.preprocess import extract_prompt_components
 from vllm.tracing import (
@@ -107,6 +108,10 @@ class PoolingServing:
 
         self._validate_request(ctx)
         self._maybe_get_adapters(ctx)
+        self._maybe_get_sparse_adapter(ctx)
+        ctx.model_name = self.models.model_name(
+            ctx.lora_request, ctx.sparse_adapter_request
+        )
         return ctx
 
     async def _prepare_generators(
@@ -160,6 +165,7 @@ class PoolingServing:
                 params,
                 prompt_request_id,
                 lora_request=ctx.lora_request,
+                sparse_adapter_request=ctx.sparse_adapter_request,
                 trace_headers=trace_headers,
                 priority=getattr(ctx.request, "priority", 0),
             )
@@ -220,6 +226,8 @@ class PoolingServing:
         if self._is_model_supported(request.model):
             return None
         if request.model in self.models.lora_requests:
+            return None
+        if request.model in self.models.sparse_adapter_requests:
             return None
         if (
             envs.VLLM_ALLOW_RUNTIME_LORA_UPDATING
@@ -282,8 +290,21 @@ class PoolingServing:
         if self._is_model_supported(request.model):
             return None
 
+        if request.model in self.models.sparse_adapter_requests:
+            return None
+
         # if _check_model has been called earlier, this will be unreachable
         raise VLLMNotFoundError(f"The model `{request.model}` does not exist.")
+
+    def _maybe_get_sparse_adapter(
+        self,
+        ctx: PoolingServeContext,
+    ) -> None:
+        request = ctx.request
+        if request.model in self.models.sparse_adapter_requests:
+            ctx.sparse_adapter_request = (
+                self.models.sparse_adapter_requests[request.model]
+            )
 
     def _get_active_default_mm_loras(
         self, request: AnyPoolingRequest
