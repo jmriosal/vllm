@@ -382,6 +382,7 @@ def need_extra_keys(request: Request) -> bool:
     return (
         bool(request.mm_features)
         or (request.lora_request is not None)
+        or (request.sparse_adapter_request is not None)
         or (request.cache_salt is not None)
     )
 
@@ -463,9 +464,14 @@ def _gen_lora_extra_hash_keys(request: Request) -> list[str]:
         Return LoRA name of the request if it is a LoRA request. Return empty
         list otherwise.
     """
-    if not request.lora_request:
+    if not request.lora_request and not request.sparse_adapter_request:
         return []
-    return [request.lora_request.lora_name]
+    keys = []
+    if request.lora_request:
+        keys.append(request.lora_request.lora_name)
+    if request.sparse_adapter_request:
+        keys.append(request.sparse_adapter_request.sparse_adapter_name)
+    return keys
 
 
 def _gen_prompt_embeds_extra_hash_keys(
