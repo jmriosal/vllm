@@ -467,8 +467,28 @@ class InputBatch:
         # Add request sparse adapter ID
         if request.sparse_adapter_request:
             sa_id = request.sparse_adapter_request.sparse_adapter_id
+            # enforce (name, id, path)-consistency across registered adapters:
+            # same id -> same name+path; same name must not appear under different ids
+            sa_name = request.sparse_adapter_request.sparse_adapter_name
+            sa_path = request.sparse_adapter_request.sparse_adapter_path
+            if sa_id in self.sparse_adapter_id_to_request:
+                existing_req = self.sparse_adapter_id_to_request[sa_id]
+                if existing_req.sparse_adapter_name != sa_name or existing_req.sparse_adapter_path != sa_path:
+                    raise ValueError(
+                        f"Sparse Adapter id={sa_id} is already registered as "
+                        f"'{existing_req.sparse_adapter_name}' ({existing_req.sparse_adapter_path}), "
+                        f"conflicts with '{sa_name}' ({sa_path})."
+                    )
+            else:
+                for existing_req in self.sparse_adapter_id_to_request.values():
+                    if existing_req.sparse_adapter_name == sa_name:
+                        raise ValueError(
+                            f"Sparse adapter name '{sa_name}' is already registered "
+                            f"with adapter_id={existing_req.sparse_adapter_id}, "
+                            f"cannot reuse the same name for adapter_id={sa_id}."
+                        )
+                self.sparse_adapter_id_to_request[sa_id] = request.sparse_adapter_request
             self.request_sparse_adapter_mapping[req_index] = sa_id
-            self.sparse_adapter_id_to_request[sa_id] = request.sparse_adapter_request
         else:
             self.request_sparse_adapter_mapping[req_index] = -1
 
