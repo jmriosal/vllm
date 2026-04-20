@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.outputs import (
     STREAM_FINISHED,
     CompletionOutput,
@@ -134,6 +135,7 @@ class RequestState:
         parent_req: ParentRequest | None,
         request_index: int,
         lora_request: LoRARequest | None,
+        sparse_adapter_request: SparseAdapterRequest | None,
         output_kind: RequestOutputKind,
         prompt: str | None,
         prompt_token_ids: list[int] | None,
@@ -156,6 +158,7 @@ class RequestState:
         self.request_index = request_index
         self.lora_request = lora_request
         self.lora_name = lora_request.lora_name if lora_request is not None else None
+        self.sparse_adapter_request = sparse_adapter_request
         self.output_kind = output_kind
         self.prompt = prompt
         self.prompt_token_ids = prompt_token_ids
@@ -249,6 +252,7 @@ class RequestState:
             parent_req=parent_req,
             request_index=request_index,
             lora_request=request.lora_request,
+            sparse_adapter_request=request.sparse_adapter_request,
             output_kind=output_kind,
             prompt=prompt,
             prompt_token_ids=request.prompt_token_ids,
@@ -363,6 +367,7 @@ class RequestState:
         return RequestOutput(
             request_id=external_req_id,  # request_id is what was provided externally
             lora_request=self.lora_request,
+            sparse_adapter_request=self.sparse_adapter_request,
             prompt=self.prompt,
             prompt_token_ids=prompt_token_ids,
             prompt_logprobs=prompt_logprobs,
