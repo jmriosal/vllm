@@ -411,6 +411,14 @@ class LLMEngine:
         """List all registered adapters."""
         return self.engine_core.list_loras()
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        """Load a new sparse adapter into the engine for future requests."""
+        return self.engine_core.add_sparse_adapter(request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        """Remove an already loaded sparse adapter."""
+        return self.engine_core.remove_sparse_adapter(sparse_adapter_id)
+
     def list_sparse_adapters(self) -> set[int]:
         """List all registered sparse adapters."""
         return self.engine_core.list_sparse_adapters()

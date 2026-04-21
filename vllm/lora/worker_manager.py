@@ -246,6 +246,12 @@ class WorkerLoRAManager:
     def remove_adapter(self, adapter_id: int) -> bool:
         return self._adapter_manager.remove_adapter(adapter_id)
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        return self._adapter_manager.add_sparse_adapter(request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        return self._adapter_manager.remove_sparse_adapter(sparse_adapter_id)
+
     def remove_all_adapters(self):
         self._adapter_manager.remove_all_adapters()
 

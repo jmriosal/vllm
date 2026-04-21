@@ -5,7 +5,7 @@ Define LoRA functionality mixin for model runners.
 """
 
 from contextlib import contextmanager
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
@@ -282,6 +282,14 @@ class LoRAModelRunnerMixin:
     def remove_lora(self, lora_id: int) -> bool:
         self._ensure_lora_enabled()
         return self.lora_manager.remove_adapter(lora_id)
+
+    def add_sparse_adapter(self, request: Any) -> bool:
+        self._ensure_lora_enabled()
+        return self.lora_manager.add_sparse_adapter(request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        self._ensure_lora_enabled()
+        return self.lora_manager.remove_sparse_adapter(sparse_adapter_id)
 
     def pin_lora(self, lora_id: int) -> bool:
         self._ensure_lora_enabled()

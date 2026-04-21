@@ -901,6 +901,12 @@ class Worker(WorkerBase):
     def remove_lora(self, lora_id: int) -> bool:
         return self.model_runner.remove_lora(lora_id)
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        return self.model_runner.add_sparse_adapter(request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        return self.model_runner.remove_sparse_adapter(sparse_adapter_id)
+
     def list_loras(self) -> set[int]:
         return self.model_runner.list_loras()
 

@@ -288,6 +288,14 @@ class Executor(ABC):
         output = self.collective_rpc("get_supported_tasks")
         return output[0]
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        assert request.adapter_id > 0, "sparse_adapter_id must be greater than 0."
+        return all(self.collective_rpc("add_sparse_adapter", args=(request,)))
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        assert sparse_adapter_id > 0, "sparse_adapter_id must be greater than 0."
+        return all(self.collective_rpc("remove_sparse_adapter", args=(sparse_adapter_id,)))
+
     def add_lora(self, lora_request: LoRARequest) -> bool:
         assert lora_request.lora_int_id > 0, "lora_id must be greater than 0."
         return all(self.collective_rpc("add_lora", args=(lora_request,)))

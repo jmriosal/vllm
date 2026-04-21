@@ -181,6 +181,12 @@ class EngineCoreClient(ABC):
     def list_loras(self) -> set[int]:
         raise NotImplementedError
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        raise NotImplementedError
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        raise NotImplementedError
+
     def list_sparse_adapters(self) -> set[int]:
         raise NotImplementedError
 
@@ -341,6 +347,12 @@ class InprocClient(EngineCoreClient):
 
     def remove_lora(self, lora_id: int) -> bool:
         return self.engine_core.remove_lora(lora_id)
+
+    def add_sparse_adapter(self, request: Any) -> bool:
+        return self.engine_core.add_sparse_adapter(request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        return self.engine_core.remove_sparse_adapter(sparse_adapter_id)
 
     def list_loras(self) -> set[int]:
         return self.engine_core.list_loras()
@@ -829,6 +841,12 @@ class SyncMPClient(MPClient):
     def remove_lora(self, lora_id: int) -> bool:
         return self.call_utility("remove_lora", lora_id)
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        return self.call_utility("add_sparse_adapter", request)
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        return self.call_utility("remove_sparse_adapter", sparse_adapter_id)
+
     def list_loras(self) -> set[int]:
         return self.call_utility("list_loras")
 
@@ -1091,6 +1109,12 @@ class AsyncMPClient(MPClient):
 
     async def remove_lora_async(self, lora_id: int) -> bool:
         return await self.call_utility_async("remove_lora", lora_id)
+
+    async def add_sparse_adapter_async(self, request: Any) -> bool:
+        return await self.call_utility_async("add_sparse_adapter", request)
+
+    async def remove_sparse_adapter_async(self, sparse_adapter_id: int) -> bool:
+        return await self.call_utility_async("remove_sparse_adapter", sparse_adapter_id)
 
     async def list_loras_async(self) -> set[int]:
         return await self.call_utility_async("list_loras")

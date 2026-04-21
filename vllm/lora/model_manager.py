@@ -427,6 +427,22 @@ class LoRAModelManager:
         self._registered_sparse_adapters[sparse_adapter.id] = sparse_adapter
         return True
 
+    def add_sparse_adapter(self, request: "SparseAdapterRequest") -> bool:
+        if request.adapter_id in self._registered_sparse_adapters:
+            return False
+        sparse_adapter = SparseAdapter.from_local_checkpoint(
+            request.path, request.adapter_id, device=self.device
+        )
+        self._add_sparse_adapter(sparse_adapter)
+        return True
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        self._deactivate_sparse_adapter(sparse_adapter_id)
+        if sparse_adapter_id not in self._registered_sparse_adapters:
+            return False
+        del self._registered_sparse_adapters[sparse_adapter_id]
+        return True
+
     def list_sparse_adapters(self) -> set[int]:
         return set(self._registered_sparse_adapters.keys())
 

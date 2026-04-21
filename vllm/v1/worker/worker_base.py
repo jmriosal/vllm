@@ -161,6 +161,12 @@ class WorkerBase:
     def list_loras(self) -> set[int]:
         raise NotImplementedError
 
+    def add_sparse_adapter(self, request: Any) -> bool:
+        raise NotImplementedError
+
+    def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        raise NotImplementedError
+
     def list_sparse_adapters(self) -> set[int]:
         raise NotImplementedError
 
