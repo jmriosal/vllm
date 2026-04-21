@@ -31,6 +31,8 @@ class BaseLinearLayerWithLoRA(BaseLayerWithLoRA):
         self.output_slices: tuple[int, ...]
         self.output_size: int
         self.n_slices: int
+        # Sparse adapters support
+        self.sparse_deltas: dict[int, torch.Tensor] | None = None
 
     def create_lora_weights(
         self,
@@ -120,6 +122,8 @@ class BaseLinearLayerWithLoRA(BaseLayerWithLoRA):
         )
 
     def apply(self, x: torch.Tensor, bias: torch.Tensor | None = None) -> torch.Tensor:
+
+        # Apply base layer: output = W @ x
         output = self.base_layer.quant_method.apply(self.base_layer, x, bias)
 
         original_shape = output.shape if output.ndim == 3 else None
@@ -131,11 +135,20 @@ class BaseLinearLayerWithLoRA(BaseLayerWithLoRA):
             output = output.flatten(0, 1)
             x = x.flatten(0, 1)
 
+        # Apply LoRA adapters: output += A @ B @ x
         lora_output: torch.Tensor | None = self.punica_wrapper.add_lora_linear(
             output, x, self.lora_a_stacked, self.lora_b_stacked, 1.0, self.output_slices
         )
         if not current_platform.can_update_inplace():
             output = lora_output
+
+        # Apply sparse adapters: output += S @ x
+        if self.sparse_deltas:
+            sparse_output = self.sparse_adapter_wrapper.add_deltas(
+                output, x, self.sparse_deltas
+            )
+            if sparse_output is not None:
+                output = sparse_output
 
         # Reshape the flattened output back to its original shape,
         # as some MM encoders cannot handle flattened inputs.

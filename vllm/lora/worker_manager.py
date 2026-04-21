@@ -200,10 +200,15 @@ class WorkerLoRAManager:
     def pin_adapter(self, adapter_id: int) -> bool:
         return self._adapter_manager.pin_adapter(adapter_id)
 
-    def set_active_adapters(self, requests: set[Any], mapping: Any | None) -> None:
+    def set_active_adapters(
+        self,
+        requests: set[Any],
+        mapping: Any | None,
+        sparse_adapter_mapping: Any | None = None,
+    ) -> None:
         self._apply_adapters(requests)
         if mapping is not None:
-            self._adapter_manager.set_adapter_mapping(mapping)
+            self._adapter_manager.set_adapter_mapping(mapping, sparse_adapter_mapping)
 
     def supports_tower_connector_lora(self) -> bool:
         return (

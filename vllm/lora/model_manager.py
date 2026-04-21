@@ -17,9 +17,12 @@ from vllm.lora.layers import (
     LoRAMapping,
     LoRAMappingType,
 )
+from vllm.lora.sparse_adapter.request import SparseAdapterMapping
 from vllm.lora.lora_model import LoRAModel
 from vllm.lora.lora_weights import LoRALayerWeights, PackedLoRALayerWeights
+from vllm.lora.sparse_adapter.sparse_adapter import SparseAdapter
 from vllm.lora.punica_wrapper import PunicaWrapperBase, get_punica_wrapper
+from vllm.lora.sparse_adapter.multitenant_wrapper import SparseAdapterWrapper
 from vllm.lora.utils import (
     from_layer,
     from_layer_logits_processor,
@@ -113,6 +116,14 @@ class LoRAModelManager:
         self._is_non_gated_moe = is_moe and self.model.is_non_gated_moe
         self._init_punica_wrapper(max_num_batched_tokens, vllm_config)
         self._create_lora_modules()
+
+
+        # Sparse Adapter support
+        self.sparse_adapter_wrapper = SparseAdapterWrapper()
+        self._registered_sparse_adapters: dict[int, SparseAdapter] = {}
+        self._active_sparse_adapters: set[int] = set()
+        self._last_sparse_adapter_mapping = None
+        self._init_sparse_adapter_layers()
 
         self.model.lora_manager = self
 
@@ -247,6 +258,12 @@ class LoRAModelManager:
                     "determine the connector's token budget for LoRA operations."
                 )
 
+    def _init_sparse_adapter_layers(self) -> None:
+        for module_name, module in self.modules.items():
+            if isinstance(module, BaseLayerWithLoRA):
+                module.sparse_deltas = {}
+                module.sparse_adapter_wrapper = self.sparse_adapter_wrapper
+
     def __len__(self) -> int:
         return len(self._registered_adapters)
 
@@ -351,6 +368,92 @@ class LoRAModelManager:
         self._registered_adapters.clear()
         self.lora_index_to_id = [None] * self.lora_slots
         self._active_adapters.clear()
+
+    def activate_sparse_adapter(self, sparse_adapter_id: int) -> bool:
+        """Loads sparse adapter"""
+
+        if sparse_adapter_id in self._active_sparse_adapters:
+            return False
+        self._active_sparse_adapters.add(sparse_adapter_id)
+        sparse_adapter = self._registered_sparse_adapters[sparse_adapter_id]
+
+        logger.debug("Activating sparse adapter. id: %d", sparse_adapter.id)
+
+        # Load deltas into layers
+        for module_name, module in self.modules.items():
+            if isinstance(module, BaseLayerWithLoRA):
+                if module_name in self.packed_modules:
+                    # Multi-slice: concatenate unfused deltas
+                    slices = self.packed_modules[module_name]
+                    sub_deltas = [sparse_adapter.deltas.get(n) for n in slices]
+                    if any(d is not None for d in sub_deltas):
+                        ref = next(d for d in sub_deltas if d is not None)
+                        ncols = ref.shape[1]
+                        for i, d in enumerate(sub_deltas):
+                            if d is None:
+                                nrows = module.output_slices[i]
+                                sub_deltas[i] = torch.sparse_csr_tensor(
+                                    torch.zeros(nrows+1, dtype=torch.int64),
+                                    torch.tensor([], dtype=torch.int64),
+                                    torch.tensor([]),
+                                    size=(nrows, ncols),
+                                    dtype=ref.dtype, device=ref.device)
+                        # delta = torch.cat(sub_deltas, dim=0): not supported with sparse CSR tensors
+                        delta = torch.cat([d.to_sparse_coo() for d in sub_deltas], dim=0).to_sparse_csr()
+                        # TO DO: concatenate underlying CSR components (values, col indices, and crow indices)
+                        module.set_sparse_adapter(sparse_adapter_id, delta)
+                    else:
+                        module.reset_sparse_adapter(sparse_adapter_id)
+                else:
+                    # Single-slice
+                    delta = sparse_adapter.deltas.get(module_name)
+                    if delta is not None:
+                        module.set_sparse_adapter(sparse_adapter_id, delta)
+                    else:
+                        module.reset_sparse_adapter(sparse_adapter_id)
+
+        return True
+
+    def _deactivate_sparse_adapter(self, sparse_adapter_id: int) -> None:
+        """Deactivate and remove sparse adapter."""
+        for module_name, module in self.modules.items():
+            if isinstance(module, BaseLayerWithLoRA):
+                module.reset_sparse_adapter(sparse_adapter_id)
+        self._active_sparse_adapters.discard(sparse_adapter_id)
+
+    def _add_sparse_adapter(
+        self, sparse_adapter
+    ) -> bool:
+        self._registered_sparse_adapters[sparse_adapter.id] = sparse_adapter
+        return True
+
+    def remove_all_sparse_adapters(self) -> None:
+        self._registered_sparse_adapters.clear()
+        self._active_sparse_adapters.clear()
+
+    def _set_sparse_adapter_mapping(
+        self,
+        mapping: SparseAdapterMapping,
+    ) -> None:
+        """Set sparse adapter mapping for current batch."""
+        self.sparse_adapter_wrapper.token_to_adapter = torch.tensor(
+            mapping.token_to_adapter, dtype=torch.int32, device=self.device)
+        self.sparse_adapter_wrapper.prompt_to_adapter = torch.tensor(
+            mapping.prompt_to_adapter, dtype=torch.int32, device=self.device)
+        self._last_sparse_adapter_mapping = mapping
+
+        requested_adapters = {a_id for a_id in mapping.token_to_adapter if a_id != -1}
+        self.sparse_adapter_wrapper.requested_adapters = requested_adapters
+
+        # check all required adapters are active
+        for a_id in requested_adapters:
+            if a_id not in self._active_sparse_adapters:
+                if a_id in self._registered_sparse_adapters:
+                    self.activate_sparse_adapter(a_id)
+                else:
+                     raise ValueError(
+                        f"Sparse Adapter '{a_id}' requested but not registered."
+                    )
 
     def _create_lora_modules(self):
         def _parent_module(module_name: str) -> str:
@@ -816,10 +919,24 @@ class LoRAModelManager:
         self._add_adapter(adapter)
         return True
 
-    def set_adapter_mapping(self, mapping: LoRAMapping) -> None:
+    def set_adapter_mapping(
+        self,
+        mapping: LoRAMapping,
+        sparse_adapter_mapping: SparseAdapterMapping | None = None,
+    ) -> None:
         if self._last_mapping != mapping:
             self._set_adapter_mapping(mapping)
             self._last_mapping = mapping
+        if sparse_adapter_mapping is not None:
+            if self._last_sparse_adapter_mapping != sparse_adapter_mapping:
+                # Lazy-load sparse adapters
+                for req in sparse_adapter_mapping.requests:
+                    if req.adapter_id not in self._registered_sparse_adapters:
+                        sparse_adapter = SparseAdapter.from_local_checkpoint(
+                            req.path, req.adapter_id, device=self.device
+                        )
+                        self._add_sparse_adapter(sparse_adapter)
+                self._set_sparse_adapter_mapping(sparse_adapter_mapping)
 
     def remove_adapter(self, adapter_id: int) -> bool:
         self.deactivate_adapter(adapter_id)

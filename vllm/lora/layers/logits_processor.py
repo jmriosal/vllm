@@ -185,6 +185,13 @@ class LogitsProcessorWithLoRA(BaseLayerWithLoRA):
         if not current_platform.can_update_inplace():
             logits = lora_output
 
+        # Apply sparse adapter deltas to logits
+        if self.sparse_deltas:
+            sparse_adapter_output = self.sparse_adapter_wrapper.add_deltas_to_logits(
+                    logits, hidden_states, self.sparse_deltas)
+            if sparse_adapter_output is not None:
+                logits = sparse_adapter_output
+
         # Remove paddings in vocab (if any).
         logits = logits[:, : self.base_layer.vocab_size]
         return logits

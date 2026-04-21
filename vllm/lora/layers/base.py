@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 
 class BaseLayerWithLoRA(nn.Module):
+
+    # Sparse adapter support (set by _init_sparse_adapter_layers)
+    sparse_deltas: dict[int, torch.Tensor] | None = None
+    sparse_adapter_wrapper: "SparseAdapterWrapper | None" = None
+
     @overload
     def slice_lora_a(
         self, lora_a: list[torch.Tensor | None]
@@ -59,6 +64,18 @@ class BaseLayerWithLoRA(nn.Module):
     ):
         """Overwrites lora tensors at index."""
         ...
+
+    def set_sparse_adapter(self, a_id: int, sparse_delta: torch.Tensor):
+        """Load sparse adapter delta into this layer."""
+        if self.sparse_deltas is None:
+            raise RuntimeError("Sparse adapter weights not initialized")
+        self.sparse_deltas[a_id] = sparse_delta
+
+    def reset_sparse_adapter(self, a_id: int):
+        """Remove sparse adapter delta from this layer."""
+        if self.sparse_deltas is None:
+            return
+        self.sparse_deltas.pop(a_id, None)
 
     def set_mapping(
         self,
