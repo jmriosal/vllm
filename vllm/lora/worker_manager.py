@@ -258,6 +258,9 @@ class WorkerLoRAManager:
     def list_adapters(self) -> set[int]:
         return set(self._adapter_manager.list_adapters())
 
+    def list_sparse_adapters(self) -> set[int]:
+        return set(self._adapter_manager._registered_sparse_adapters.keys())
+
 
 class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
     """WorkerLoRAManager that manages LoRA models on the worker side.
