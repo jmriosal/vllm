@@ -427,6 +427,9 @@ class LoRAModelManager:
         self._registered_sparse_adapters[sparse_adapter.id] = sparse_adapter
         return True
 
+    def list_sparse_adapters(self) -> set[int]:
+        return set(self._registered_sparse_adapters.keys())
+
     def remove_all_sparse_adapters(self) -> None:
         self._registered_sparse_adapters.clear()
         self._active_sparse_adapters.clear()

@@ -181,6 +181,9 @@ class EngineCoreClient(ABC):
     def list_loras(self) -> set[int]:
         raise NotImplementedError
 
+    def list_sparse_adapters(self) -> set[int]:
+        raise NotImplementedError
+
     def pin_lora(self, lora_id: int) -> bool:
         raise NotImplementedError
 
@@ -341,6 +344,9 @@ class InprocClient(EngineCoreClient):
 
     def list_loras(self) -> set[int]:
         return self.engine_core.list_loras()
+
+    def list_sparse_adapters(self) -> set[int]:
+        return self.engine_core.list_sparse_adapters()
 
     def pin_lora(self, lora_id: int) -> bool:
         return self.engine_core.pin_lora(lora_id)
@@ -826,6 +832,9 @@ class SyncMPClient(MPClient):
     def list_loras(self) -> set[int]:
         return self.call_utility("list_loras")
 
+    def list_sparse_adapters(self) -> set[int]:
+        return self.call_utility("list_sparse_adapters")
+
     def pin_lora(self, lora_id: int) -> bool:
         return self.call_utility("pin_lora", lora_id)
 
@@ -1085,6 +1094,9 @@ class AsyncMPClient(MPClient):
 
     async def list_loras_async(self) -> set[int]:
         return await self.call_utility_async("list_loras")
+
+    async def list_sparse_adapters_async(self) -> set[int]:
+        return await self.call_utility_async("list_sparse_adapters")
 
     async def pin_lora_async(self, lora_id: int) -> bool:
         return await self.call_utility_async("pin_lora", lora_id)

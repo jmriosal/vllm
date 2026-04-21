@@ -411,6 +411,10 @@ class LLMEngine:
         """List all registered adapters."""
         return self.engine_core.list_loras()
 
+    def list_sparse_adapters(self) -> set[int]:
+        """List all registered sparse adapters."""
+        return self.engine_core.list_sparse_adapters()
+
     def pin_lora(self, lora_id: int) -> bool:
         """Prevent an adapter from being evicted."""
         return self.engine_core.pin_lora(lora_id)

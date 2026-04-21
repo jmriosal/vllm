@@ -306,6 +306,12 @@ class Executor(ABC):
             assert s == sets[0], "All workers should have the same LORAs."
         return sets[0]
 
+    def list_sparse_adapters(self) -> set[int]:
+        sets: list[set[int]] = self.collective_rpc("list_sparse_adapters")
+        for s in sets:
+            assert s == sets[0], "All workers should have the same sparse adapters."
+        return sets[0]
+
     def reset_mm_cache(self) -> None:
         """Reset the multi-modal cache in each worker."""
         self.collective_rpc("reset_mm_cache")

@@ -712,6 +712,9 @@ class EngineCore:
     def list_loras(self) -> set[int]:
         return self.model_executor.list_loras()
 
+    def list_sparse_adapters(self) -> set[int]:
+        return self.model_executor.list_sparse_adapters()
+
     def pin_lora(self, lora_id: int) -> bool:
         return self.model_executor.pin_lora(lora_id)
 

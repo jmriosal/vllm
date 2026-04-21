@@ -290,3 +290,7 @@ class LoRAModelRunnerMixin:
     def list_loras(self) -> set[int]:
         self._ensure_lora_enabled()
         return self.lora_manager.list_adapters()
+
+    def list_sparse_adapters(self) -> set[int]:
+        self._ensure_lora_enabled()
+        return self.lora_manager.list_sparse_adapters()

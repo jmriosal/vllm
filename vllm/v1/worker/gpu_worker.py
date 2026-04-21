@@ -904,6 +904,9 @@ class Worker(WorkerBase):
     def list_loras(self) -> set[int]:
         return self.model_runner.list_loras()
 
+    def list_sparse_adapters(self) -> set[int]:
+        return self.model_runner.list_sparse_adapters()
+
     def pin_lora(self, lora_id: int) -> bool:
         return self.model_runner.pin_lora(lora_id)
 
