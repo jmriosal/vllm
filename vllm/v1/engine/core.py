@@ -26,6 +26,7 @@ from vllm.envs import enable_envs_cache
 from vllm.logger import init_logger
 from vllm.logging_utils.dump_input import dump_engine_exception
 from vllm.lora.request import LoRARequest
+from vllm.lora.sparse_adapter.request import SparseAdapterRequest
 from vllm.multimodal import MULTIMODAL_REGISTRY
 from vllm.tasks import POOLING_TASKS, SupportedTask
 from vllm.tracing import instrument, maybe_init_worker_tracer
@@ -709,7 +710,7 @@ class EngineCore:
     def remove_lora(self, lora_id: int) -> bool:
         return self.model_executor.remove_lora(lora_id)
 
-    def add_sparse_adapter(self, request: Any) -> bool:
+    def add_sparse_adapter(self, request: SparseAdapterRequest) -> bool:
         return self.model_executor.add_sparse_adapter(request)
 
     def remove_sparse_adapter(self, sparse_adapter_id: int) -> bool:
