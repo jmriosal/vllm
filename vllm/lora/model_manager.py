@@ -370,7 +370,6 @@ class LoRAModelManager:
         self._active_adapters.clear()
 
     def activate_sparse_adapter(self, sparse_adapter_id: int) -> bool:
-        """Loads sparse adapter"""
 
         if sparse_adapter_id in self._active_sparse_adapters:
             return False
@@ -379,7 +378,7 @@ class LoRAModelManager:
 
         logger.debug("Activating sparse adapter. id: %d", sparse_adapter.id)
 
-        # Load deltas into layers
+        # setup deltas into layers
         for module_name, module in self.modules.items():
             if isinstance(module, BaseLayerWithLoRA):
                 if module_name in self.packed_modules:
@@ -398,9 +397,12 @@ class LoRAModelManager:
                                     torch.tensor([]),
                                     size=(nrows, ncols),
                                     dtype=ref.dtype, device=ref.device)
-                        # delta = torch.cat(sub_deltas, dim=0): not supported with sparse CSR tensors
-                        delta = torch.cat([d.to_sparse_coo() for d in sub_deltas], dim=0).to_sparse_csr()
-                        # TO DO: concatenate underlying CSR components (values, col indices, and crow indices)
+                        if any(d.layout == torch.strided for d in sub_deltas): # any dense
+                            delta = torch.cat([d.to_dense() for d in sub_deltas], dim=0)
+                        else: # all sparse (or None)
+                            delta = torch.cat([d.to_sparse_coo() for d in sub_deltas], dim=0).to_sparse_csr()
+                            # TO DO: torch.cat not supported with sparse CSR tensors
+                            # try to concatenate underlying CSR components (values, col indices, and crow indices)
                         module.set_sparse_adapter(sparse_adapter_id, delta)
                     else:
                         module.reset_sparse_adapter(sparse_adapter_id)
