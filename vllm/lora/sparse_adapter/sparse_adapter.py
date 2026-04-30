@@ -37,6 +37,7 @@ class SparseAdapter:
         sparse_adapter_id: int | None = None,
         device: str | torch.device = "cuda",
         dtype: torch.dtype = torch.bfloat16,
+        density_threshold: float = 0.1, # convert sparse delta to dense if density > threshold  
     ) -> "SparseAdapter":
 
         if sparse_adapter_id is None:
@@ -66,7 +67,7 @@ class SparseAdapter:
             sparse_delta = torch.sparse_csr_tensor(crow_indices, col_indices, values, size=size)
 
             nnz = len(sparse_delta.values())
-            if nnz > 0.2 * sparse_delta.shape.numel():
+            if nnz > density_threshold * sparse_delta.numel(): # numel as product of shape dimensions
                 sparse_delta = sparse_delta.to_dense()
             
             sparse_delta = sparse_delta.to(device=device, dtype=dtype)
